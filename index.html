@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Chidjay AAC - Visual Communication Assistant</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons for clear, universal visual cues -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts: Inter and Lexend (Highly legible for screen reading) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Lexend', 'Inter', 'sans-serif'],
+          },
+          colors: {
+            highVis: {
+              bg: '#000000',
+              card: '#121212',
+              text: '#FFFF00',
+              accent: '#00FFFF',
+              yes: '#00FF00',
+              no: '#FF0000'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom styling for Accessibility & Focus States */
+    body {
+      font-family: 'Lexend', sans-serif;
+      touch-action: manipulation; /* Disable double-tap zoom for faster taps */
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    /* Target highlight during Switch Auto-Scanning */
+    .scan-highlighted {
+      outline: 8px solid #3B82F6 !important;
+      outline-offset: 4px;
+      transform: scale(1.03);
+      z-index: 30;
+      box-shadow: 0 0 25px rgba(59, 130, 246, 0.8) !important;
+    }
+
+    /* High contrast mode scan highlight */
+    .dark .scan-highlighted {
+      outline: 8px solid #FFFF00 !important;
+      outline-offset: 4px;
+      transform: scale(1.03);
+      z-index: 30;
+      box-shadow: 0 0 25px rgba(255, 255, 0, 0.9) !important;
+    }
+
+    /* Active press feedback */
+    .card-active {
+      transform: scale(0.96) !important;
+      filter: brightness(1.2);
+    }
+
+    /* Smooth scroll for categories */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Pulsing animation for scan switch bar */
+    @keyframes scanPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .scanning-active-indicator {
+      animation: scanPulse 1.5s infinite;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 transition-colors duration-200 min-h-screen flex flex-col antialiased selection:bg-blue-200 selection:text-blue-900">
+
+  <!-- TOP HEADER / ACCESS BAR -->
+  <header class="bg-white dark:bg-zinc-900 border-b-4 border-slate-200 dark:border-zinc-800 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-7xl mx-auto px-3 py-2 flex items-center justify-between gap-2">
+      <!-- App Brand -->
+      <div class="flex items-center gap-2">
+        <div class="bg-blue-600 dark:bg-yellow-400 text-white dark:text-black p-2.5 rounded-2xl flex items-center justify-center font-bold text-xl shadow-md">
+          <i class="fa-solid font-black fa-comment-dots"></i>
+        </div>
+        <div>
+          <h1 class="text-xl md:text-2xl font-extrabold tracking-tight dark:text-yellow-400 leading-none">Chidjay</h1>
+          <span id="appSubHeader" class="text-xs text-slate-500 dark:text-zinc-400 font-semibold hidden sm:inline-block">Spraak &amp; Communicatie Assistent</span>
+        </div>
+      </div>
+
+      <!-- Live Switch-Scanning Control Banner -->
+      <div id="scanStatusBanner" class="hidden sm:flex items-center gap-2 bg-blue-50 dark:bg-zinc-800 border-2 border-blue-400 dark:border-yellow-400 px-3 py-1.5 rounded-full">
+        <span class="w-3 h-3 rounded-full bg-blue-600 dark:bg-yellow-400 scanning-active-indicator"></span>
+        <span id="scanBannerText" class="text-xs font-bold text-blue-900 dark:text-yellow-300 uppercase tracking-wider">Auto-Scan Actief (Spatie / Tik overal)</span>
+      </div>
+
+      <!-- Caregiver / Accessibility Controls & Language Switcher -->
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <!-- Prominent Language Switcher (NL / EN) -->
+        <div class="flex items-center bg-slate-200 dark:bg-zinc-800 p-1 rounded-2xl border-2 border-slate-300 dark:border-zinc-700">
+          <button id="langBtnNL" onclick="setLanguage('nl')" aria-label="Schakel over naar Nederlands" class="px-2.5 py-1.5 rounded-xl font-black text-sm transition-all bg-blue-600 text-white dark:bg-yellow-400 dark:text-black shadow-sm">
+            🇳🇱 NL
+          </button>
+          <button id="langBtnEN" onclick="setLanguage('en')" aria-label="Switch to English" class="px-2.5 py-1.5 rounded-xl font-bold text-sm text-slate-600 dark:text-zinc-300 hover:text-slate-900 transition-all">
+            🇬🇧 EN
+          </button>
+        </div>
+
+        <!-- Switch Scan Toggle -->
+        <button id="toggleScanBtn" onclick="toggleAutoScan()" aria-label="Schakel auto-scannen in/uit" class="px-3 py-2 md:px-4 md:py-2.5 rounded-xl font-bold text-sm bg-slate-200 dark:bg-zinc-800 text-slate-800 dark:text-yellow-300 hover:bg-slate-300 border-2 border-slate-300 dark:border-zinc-700 flex items-center gap-2 transition">
+          <i class="fa-solid fa-arrows-spin text-base"></i>
+          <span id="scanBtnText" class="hidden md:inline">Auto-Scan: UIT</span>
+        </button>
+
+        <!-- Caregiver Settings Toggle -->
+        <button onclick="openSettingsModal()" aria-label="Open Instellingen" class="px-3 py-2 md:px-4 md:py-2.5 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white dark:bg-yellow-400 dark:text-black dark:hover:bg-yellow-300 border-2 border-blue-700 dark:border-yellow-500 flex items-center gap-2 shadow-md transition">
+          <i class="fa-solid fa-gear text-base"></i>
+          <span id="settingsBtnText" class="hidden md:inline">Instellingen</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN APP CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-2 sm:p-4 flex flex-col gap-3">
+
+    <!-- 1. DOMINANT DIRECT RESPONSE BAR (GIANT YES / NO / MAYBE / WAIT) -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4" aria-label="Quick Responses">
+      <!-- YES BUTTON -->
+      <button onclick="speakDirectResponse('yes')" 
+              data-scanable="true" 
+              class="express-card group relative h-28 sm:h-36 md:h-40 rounded-3xl bg-emerald-500 dark:bg-emerald-600 text-white font-extrabold shadow-lg hover:shadow-xl active:scale-95 transition-all flex flex-col items-center justify-center border-4 border-emerald-600 dark:border-emerald-400">
+        <i class="fa-solid fa-circle-check text-4xl sm:text-5xl md:text-6xl mb-1 group-hover:scale-110 transition-transform"></i>
+        <span id="directYesLabel" class="text-3xl sm:text-4xl md:text-5xl tracking-wide uppercase font-black">JA</span>
+      </button>
+
+      <!-- NO BUTTON -->
+      <button onclick="speakDirectResponse('no')" 
+              data-scanable="true" 
+              class="express-card group relative h-28 sm:h-36 md:h-40 rounded-3xl bg-red-500 dark:bg-red-600 text-white font-extrabold shadow-lg hover:shadow-xl active:scale-95 transition-all flex flex-col items-center justify-center border-4 border-red-600 dark:border-red-400">
+        <i class="fa-solid fa-circle-xmark text-4xl sm:text-5xl md:text-6xl mb-1 group-hover:scale-110 transition-transform"></i>
+        <span id="directNoLabel" class="text-3xl sm:text-4xl md:text-5xl tracking-wide uppercase font-black">NEE</span>
+      </button>
+
+      <!-- MAYBE BUTTON -->
+      <button onclick="speakDirectResponse('maybe')" 
+              data-scanable="true" 
+              class="express-card group relative h-28 sm:h-36 md:h-40 rounded-3xl bg-amber-500 dark:bg-amber-600 text-white font-extrabold shadow-lg hover:shadow-xl active:scale-95 transition-all flex flex-col items-center justify-center border-4 border-amber-600 dark:border-amber-400">
+        <i class="fa-solid fa-circle-question text-3xl sm:text-4xl md:text-5xl mb-1 group-hover:scale-110 transition-transform"></i>
+        <span id="directMaybeLabel" class="text-2xl sm:text-3xl md:text-4xl tracking-wide uppercase font-black">MISSCHIEN</span>
+      </button>
+
+      <!-- WAIT BUTTON -->
+      <button onclick="speakDirectResponse('wait')" 
+              data-scanable="true" 
+              class="express-card group relative h-28 sm:h-36 md:h-40 rounded-3xl bg-purple-600 dark:bg-purple-700 text-white font-extrabold shadow-lg hover:shadow-xl active:scale-95 transition-all flex flex-col items-center justify-center border-4 border-purple-700 dark:border-purple-500">
+        <i class="fa-solid fa-hand text-3xl sm:text-4xl md:text-5xl mb-1 group-hover:scale-110 transition-transform"></i>
+        <span id="directWaitLabel" class="text-2xl sm:text-3xl md:text-4xl tracking-wide uppercase font-black">WACHT</span>
+      </button>
+    </section>
+
+    <!-- 2. CURRENT EXPRESSED MESSAGE DISPLAY BANNER -->
+    <section class="bg-white dark:bg-zinc-900 border-4 border-slate-300 dark:border-zinc-700 rounded-3xl p-3 sm:p-4 shadow-md flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex items-center gap-3 w-full sm:w-auto flex-1 min-w-0">
+        <div class="bg-slate-100 dark:bg-zinc-800 p-3 rounded-2xl text-slate-500 dark:text-yellow-400 hidden sm:block">
+          <i class="fa-solid fa-volume-high text-2xl"></i>
+        </div>
+        <div class="w-full truncate">
+          <span id="currentExpressionHeading" class="text-xs font-bold text-slate-400 uppercase tracking-widest block">Gekozen Boodschap</span>
+          <p id="currentSpeakText" class="text-2xl sm:text-3xl font-extrabold text-blue-900 dark:text-yellow-300 truncate">
+            Klaar om te spreken...
+          </p>
+        </div>
+      </div>
+
+      <!-- Speak / Repeat & Clear controls -->
+      <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+        <button onclick="repeatCurrentPhrase()" 
+                data-scanable="true"
+                aria-label="Herhaal zin"
+                class="express-card flex-1 sm:flex-none px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white dark:bg-yellow-400 dark:text-black dark:hover:bg-yellow-300 font-bold rounded-2xl flex items-center justify-center gap-2 text-lg shadow border-2 border-blue-700 dark:border-yellow-500">
+          <i class="fa-solid fa-play"></i>
+          <span id="sayAgainBtnText">Herhalen</span>
+        </button>
+
+        <button onclick="clearCurrentPhrase()" 
+                data-scanable="true"
+                aria-label="Wis zin"
+                class="express-card px-4 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 font-bold rounded-2xl flex items-center justify-center gap-2 text-lg border-2 border-slate-300 dark:border-zinc-600">
+          <i class="fa-solid fa-trash-can"></i>
+          <span id="clearBtnText" class="hidden sm:inline">Wissen</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 3. CATEGORY NAVIGATION TABS -->
+    <nav class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1" aria-label="Communication Categories">
+      <button onclick="switchCategory('needs')" id="tab-needs" data-scanable="true" class="cat-tab px-5 py-3 rounded-2xl font-extrabold text-base sm:text-lg whitespace-nowrap transition-all border-3 flex items-center gap-2.5 bg-blue-600 text-white border-blue-700 shadow-md">
+        <i class="fa-solid fa-hand-holding-medical text-xl"></i>
+        <span id="tabNeedsText">Behoeften</span>
+      </button>
+
+      <button onclick="switchCategory('feelings')" id="tab-feelings" data-scanable="true" class="cat-tab px-5 py-3 rounded-2xl font-extrabold text-base sm:text-lg whitespace-nowrap transition-all border-3 flex items-center gap-2.5 bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 border-slate-300 dark:border-zinc-700">
+        <i class="fa-solid fa-face-smile text-xl"></i>
+        <span id="tabFeelingsText">Gevoelens</span>
+      </button>
+
+      <button onclick="switchCategory('activities')" id="tab-activities" data-scanable="true" class="cat-tab px-5 py-3 rounded-2xl font-extrabold text-base sm:text-lg whitespace-nowrap transition-all border-3 flex items-center gap-2.5 bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 border-slate-300 dark:border-zinc-700">
+        <i class="fa-solid fa-wheelchair text-xl"></i>
+        <span id="tabActivitiesText">Activiteiten</span>
+      </button>
+
+      <button onclick="switchCategory('requests')" id="tab-requests" data-scanable="true" class="cat-tab px-5 py-3 rounded-2xl font-extrabold text-base sm:text-lg whitespace-nowrap transition-all border-3 flex items-center gap-2.5 bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 border-slate-300 dark:border-zinc-700">
+        <i class="fa-solid fa-bullhorn text-xl"></i>
+        <span id="tabRequestsText">Aanvragen</span>
+      </button>
+
+      <button onclick="switchCategory('custom')" id="tab-custom" data-scanable="true" class="cat-tab px-5 py-3 rounded-2xl font-extrabold text-base sm:text-lg whitespace-nowrap transition-all border-3 flex items-center gap-2.5 bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 border-slate-300 dark:border-zinc-700">
+        <i class="fa-solid fa-star text-xl"></i>
+        <span id="tabCustomText">Mijn Kaarten</span>
+      </button>
+    </nav>
+
+    <!-- 4. EXPRESSION CARDS GRID AREA -->
+    <section class="flex-1 min-h-[360px]">
+      <div id="cardsGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        <!-- Cards dynamically populated via JS -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- CAREGIVER & ACCESSIBILITY SETTINGS MODAL -->
+  <div id="settingsModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white dark:bg-zinc-900 dark:text-white border-4 border-slate-300 dark:border-zinc-700 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-4 sm:p-6 flex flex-col gap-6">
+      
+      <!-- Header -->
+      <div class="flex items-center justify-between border-b-2 border-slate-200 dark:border-zinc-800 pb-3">
+        <div class="flex items-center gap-3">
+          <div class="p-3 bg-blue-100 dark:bg-yellow-400/20 text-blue-600 dark:text-yellow-400 rounded-2xl">
+            <i class="fa-solid fa-sliders text-2xl"></i>
+          </div>
+          <h2 id="modalHeaderTitle" class="text-2xl font-extrabold">Instellingen &amp; Toegankelijkheid</h2>
+        </div>
+        <button onclick="closeSettingsModal()" aria-label="Sluit instellingen" class="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-xl text-2xl">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Settings Form Options -->
+      <div class="space-y-6">
+
+        <!-- 1. Voice & Speech Synthesis Settings -->
+        <div class="bg-slate-50 dark:bg-zinc-800/60 p-4 rounded-2xl border-2 border-slate-200 dark:border-zinc-700 space-y-4">
+          <h3 id="ttsSettingsHeading" class="font-extrabold text-lg flex items-center gap-2 text-blue-800 dark:text-yellow-300">
+            <i class="fa-solid fa-volume-low"></i> Tekst-naar-Spraak (Stem)
+          </h3>
+
+          <!-- Voice Selection -->
+          <div>
+            <label id="voiceSelectLabel" for="voiceSelect" class="block font-bold text-sm mb-1 text-slate-700 dark:text-zinc-300">Selecteer Stem:</label>
+            <select id="voiceSelect" onchange="updateVoiceSettings()" class="w-full p-3 rounded-xl border-2 border-slate-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white font-semibold">
+              <option value="">Laden van stemmen...</option>
+            </select>
+          </div>
+
+          <!-- Speech Rate / Speed -->
+          <div>
+            <div class="flex justify-between font-bold text-sm mb-1">
+              <span id="speechRateLabel">Spraaksnelheid:</span>
+              <span id="rateVal" class="text-blue-600 dark:text-yellow-400">1.0x</span>
+            </div>
+            <input type="range" id="speechRate" min="0.5" max="1.5" step="0.1" value="1.0" oninput="updateVoiceSettings()" class="w-full h-3 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-blue-600 dark:accent-yellow-400">
+          </div>
+
+          <!-- Speech Pitch -->
+          <div>
+            <div class="flex justify-between font-bold text-sm mb-1">
+              <span id="speechPitchLabel">Toonhoogte:</span>
+              <span id="pitchVal" class="text-blue-600 dark:text-yellow-400">1.0</span>
+            </div>
+            <input type="range" id="speechPitch" min="0.5" max="1.5" step="0.1" value="1.0" oninput="updateVoiceSettings()" class="w-full h-3 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-blue-600 dark:accent-yellow-400">
+          </div>
+
+          <!-- Test Voice Button -->
+          <button id="testVoiceBtn" onclick="testVoice()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 font-bold rounded-xl text-sm flex items-center gap-2">
+            <i class="fa-solid fa-bullhorn"></i> Test Steminstellingen
+          </button>
+        </div>
+
+        <!-- 2. Auto-Scanning / Switch Access Settings -->
+        <div class="bg-slate-50 dark:bg-zinc-800/60 p-4 rounded-2xl border-2 border-slate-200 dark:border-zinc-700 space-y-4">
+          <h3 id="scanSettingsHeading" class="font-extrabold text-lg flex items-center gap-2 text-blue-800 dark:text-yellow-300">
+            <i class="fa-solid fa-arrows-spin"></i> Schakelbediening &amp; Auto-Scannen
+          </h3>
+          <p id="scanDescText" class="text-xs text-slate-500 dark:text-zinc-400">
+            Auto-scannen licht opeenvolgend opties uit. Druk op de spatiebalk, Enter of tik ergens op het scherm om het geselecteerde item te kiezen.
+          </p>
+
+          <div class="flex items-center justify-between">
+            <span id="enableScanLabel" class="font-bold text-sm">Auto-Scannen Inschakelen:</span>
+            <input type="checkbox" id="modalScanToggle" onchange="toggleAutoScanFromModal(this.checked)" class="w-6 h-6 rounded accent-blue-600 dark:accent-yellow-400">
+          </div>
+
+          <div>
+            <div class="flex justify-between font-bold text-sm mb-1">
+              <span id="scanSpeedLabel">Scansnelheid:</span>
+              <span id="scanSpeedVal" class="text-blue-600 dark:text-yellow-400">2.5 Seconde</span>
+            </div>
+            <input type="range" id="scanSpeed" min="1" max="6" step="0.5" value="2.5" oninput="updateScanSpeed(this.value)" class="w-full h-3 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-blue-600 dark:accent-yellow-400">
+          </div>
+        </div>
+
+        <!-- 3. High Contrast Theme Mode -->
+        <div class="bg-slate-50 dark:bg-zinc-800/60 p-4 rounded-2xl border-2 border-slate-200 dark:border-zinc-700 flex items-center justify-between">
+          <div>
+            <h3 id="contrastHeading" class="font-extrabold text-base flex items-center gap-2 text-slate-800 dark:text-yellow-300">
+              <i class="fa-solid fa-circle-half-stroke"></i> Hoog Contrast Modus
+            </h3>
+            <p id="contrastDesc" class="text-xs text-slate-500 dark:text-zinc-400">Geel-op-zwart weergave voor optimale visuele helderheid.</p>
+          </div>
+          <button id="toggleThemeBtn" onclick="toggleTheme()" class="px-4 py-2.5 bg-zinc-900 text-yellow-400 border-2 border-yellow-400 font-extrabold rounded-xl shadow text-sm">
+            Wisselen
+          </button>
+        </div>
+
+        <!-- 4. Add Custom Card Builder -->
+        <div class="bg-slate-50 dark:bg-zinc-800/60 p-4 rounded-2xl border-2 border-slate-200 dark:border-zinc-700 space-y-3">
+          <h3 id="addCustomHeading" class="font-extrabold text-lg flex items-center gap-2 text-blue-800 dark:text-yellow-300">
+            <i class="fa-solid fa-plus-circle"></i> Aangepaste Kaart Toevoegen
+          </h3>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label id="lblCustomLabel" class="block text-xs font-bold mb-1">Kaart Label:</label>
+              <input type="text" id="customLabel" placeholder="bijv. Familie bellen" class="w-full p-2.5 rounded-xl border-2 border-slate-300 dark:border-zinc-600 dark:bg-zinc-800 font-semibold text-sm">
+            </div>
+            <div>
+              <label id="lblCustomPhrase" class="block text-xs font-bold mb-1">Gesproken Zinsdeel:</label>
+              <input type="text" id="customPhrase" placeholder="bijv. Kun je mij helpen mijn familie te bellen?" class="w-full p-2.5 rounded-xl border-2 border-slate-300 dark:border-zinc-600 dark:bg-zinc-800 font-semibold text-sm">
+            </div>
+            <div>
+              <label id="lblCustomIcon" class="block text-xs font-bold mb-1">Icoon (Pictogram):</label>
+              <select id="customIcon" class="w-full p-2.5 rounded-xl border-2 border-slate-300 dark:border-zinc-600 dark:bg-zinc-800 font-semibold text-sm">
+                <option value="fa-heart">Hart (❤️)</option>
+                <option value="fa-phone">Telefoon (📞)</option>
+                <option value="fa-music">Muziek (🎵)</option>
+                <option value="fa-book">Boek (📖)</option>
+                <option value="fa-gamepad">Spel (🎮)</option>
+                <option value="fa-dog">Huisdier (🐕)</option>
+                <option value="fa-car">Auto / Rit (🚗)</option>
+                <option value="fa-user-doctor">Dokter / Zuster (🧑‍⚕️)</option>
+              </select>
+            </div>
+            <div>
+              <label id="lblCustomColor" class="block text-xs font-bold mb-1">Kleur Thema:</label>
+              <select id="customColor" class="w-full p-2.5 rounded-xl border-2 border-slate-300 dark:border-zinc-600 dark:bg-zinc-800 font-semibold text-sm">
+                <option value="bg-blue-600">Blauw</option>
+                <option value="bg-emerald-600">Groen</option>
+                <option value="bg-purple-600">Paars</option>
+                <option value="bg-rose-600">Rood / Roze</option>
+                <option value="bg-amber-600">Oranje / Geel</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="saveCustomCardBtn" onclick="addCustomCard()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-base shadow flex items-center justify-center gap-2">
+            <i class="fa-solid fa-plus"></i> Kaart Opslaan
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Close Button -->
+      <div class="border-t-2 border-slate-200 dark:border-zinc-800 pt-3 flex justify-end">
+        <button id="modalDoneBtn" onclick="closeSettingsModal()" class="px-6 py-3 bg-slate-800 text-white dark:bg-yellow-400 dark:text-black font-extrabold rounded-2xl text-base shadow">
+          Klaar &amp; Toepassen
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT AAC APP LOGIC -->
+  <script>
+    /* ==========================================================================
+       1. TRANSLATION DICTIONARY & MULTI-LANGUAGE DATA STRUCTURES
+       ========================================================================== */
+    let currentLang = 'nl'; // Default to Dutch
+
+    const directResponses = {
+      nl: {
+        yes: { label: "JA", speech: "Ja!" },
+        no: { label: "NEE", speech: "Nee!" },
+        maybe: { label: "MISSCHIEN", speech: "Misschien" },
+        wait: { label: "WACHT", speech: "Wacht alsjeblieft even" }
+      },
+      en: {
+        yes: { label: "YES", speech: "Yes!" },
+        no: { label: "NO", speech: "No!" },
+        maybe: { label: "MAYBE", speech: "Maybe or Perhaps" },
+        wait: { label: "WAIT", speech: "Please wait a moment" }
+      }
+    };
+
+    const localizedCards = {
+      nl: {
+        needs: [
+          { id: 'n1', label: "Honger", speech: "Ik heb honger, ik wil graag iets eten.", icon: "fa-utensils", color: "bg-amber-500 dark:bg-amber-600" },
+          { id: 'n2', label: "Dorst", speech: "Ik heb dorst, mag ik wat drinken?", icon: "fa-glass-water", color: "bg-sky-500 dark:bg-sky-600" },
+          { id: 'n3', label: "Toilet", speech: "Ik moet naar het toilet.", icon: "fa-restroom", color: "bg-indigo-600 dark:bg-indigo-700" },
+          { id: 'n4', label: "Moe", speech: "Ik ben moe en wil graag rusten.", icon: "fa-bed", color: "bg-purple-600 dark:bg-purple-700" },
+          { id: 'n5', label: "Pijn", speech: "Ik heb pijn, help mij alsjeblieft.", icon: "fa-kit-medical", color: "bg-red-600 dark:bg-red-700" },
+          { id: 'n6', label: "Rusten", speech: "Ik wil even rusten.", icon: "fa-couch", color: "bg-teal-600 dark:bg-teal-700" },
+          { id: 'n7', label: "Help Mij", speech: "Help mij alsjeblieft.", icon: "fa-hand-holding-heart", color: "bg-rose-600 dark:bg-rose-700" },
+          { id: 'n8', label: "Medicijn", speech: "Ik wil mijn medicijn alsjeblieft.", icon: "fa-pills", color: "bg-blue-600 dark:bg-blue-700" }
+        ],
+        feelings: [
+          { id: 'f1', label: "Blij", speech: "Ik voel mij blij!", icon: "fa-face-smile-beam", color: "bg-emerald-500 dark:bg-emerald-600" },
+          { id: 'f2', label: "Verdrietig", speech: "Ik voel mij verdrietig.", icon: "fa-face-sad-tear", color: "bg-blue-600 dark:bg-blue-700" },
+          { id: 'f3', label: "Boos", speech: "Ik ben boos.", icon: "fa-face-angry", color: "bg-red-600 dark:bg-red-700" },
+          { id: 'f4', label: "Angstig", speech: "Ik ben angstig en bang.", icon: "fa-face-fearful", color: "bg-purple-600 dark:bg-purple-700" },
+          { id: 'f5', label: "Koud", speech: "Ik heb het koud.", icon: "fa-temperature-low", color: "bg-sky-600 dark:bg-sky-700" },
+          { id: 'f6', label: "Warm", speech: "Ik heb het warm.", icon: "fa-temperature-high", color: "bg-orange-500 dark:bg-orange-600" },
+          { id: 'f7', label: "Comfortabel", speech: "Ik zit comfortabel en fijn.", icon: "fa-face-smile", color: "bg-teal-500 dark:bg-teal-600" },
+          { id: 'f8', label: "In de war", speech: "Ik ben in de war.", icon: "fa-face-meh-blank", color: "bg-slate-500 dark:bg-zinc-600" }
+        ],
+        activities: [
+          { id: 'a1', label: "TV Kijken", speech: "Ik wil televisie kijken.", icon: "fa-tv", color: "bg-indigo-500 dark:bg-indigo-600" },
+          { id: 'a2', label: "Naar Buiten", speech: "Ik wil graag naar buiten gaan.", icon: "fa-tree", color: "bg-emerald-600 dark:bg-emerald-700" },
+          { id: 'a3', label: "Muziek", speech: "Ik wil naar muziek luisteren.", icon: "fa-music", color: "bg-fuchsia-600 dark:bg-fuchsia-700" },
+          { id: 'a4', label: "Boek Lezen", speech: "Ik wil een boek lezen.", icon: "fa-book-open", color: "bg-amber-600 dark:bg-amber-700" },
+          { id: 'a5', label: "Slapen", speech: "Ik wil gaan slapen.", icon: "fa-moon", color: "bg-purple-800 dark:bg-purple-900" },
+          { id: 'a6', label: "Familie Bellen", speech: "Ik wil mijn familie bellen.", icon: "fa-phone", color: "bg-blue-600 dark:bg-blue-700" },
+          { id: 'a7', label: "Rolstoel", speech: "Kun je mijn rolstoel verplaatsen?", icon: "fa-wheelchair", color: "bg-cyan-600 dark:bg-cyan-700" },
+          { id: 'a8', label: "Rustige Ruimte", speech: "Ik wil graag naar een rustige ruimte.", icon: "fa-volume-xmark", color: "bg-slate-600 dark:bg-zinc-700" }
+        ],
+        requests: [
+          { id: 'r1', label: "Dank U", speech: "Dank u wel!", icon: "fa-heart", color: "bg-pink-500 dark:bg-pink-600" },
+          { id: 'r2', label: "Alsjeblieft", speech: "Alsjeblieft.", icon: "fa-hand-holding-heart", color: "bg-emerald-600 dark:bg-emerald-700" },
+          { id: 'r3', label: "Stop", speech: "Wil je hier alsjeblieft mee stoppen?", icon: "fa-hand", color: "bg-red-500 dark:bg-red-600" },
+          { id: 'r4', label: "Ik hou van jou", speech: "Ik hou van jou!", icon: "fa-heart-circle-bolt", color: "bg-rose-500 dark:bg-rose-600" },
+          { id: 'r5', label: "Hoe laat is het?", speech: "Hoe laat is het?", icon: "fa-clock", color: "bg-amber-600 dark:bg-amber-700" },
+          { id: 'r6', label: "Waar gaan we?", speech: "Waar gaan we naartoe?", icon: "fa-location-dot", color: "bg-blue-600 dark:bg-blue-700" }
+        ]
+      },
+      en: {
+        needs: [
+          { id: 'n1', label: "Hungry", speech: "I am hungry, I would like something to eat.", icon: "fa-utensils", color: "bg-amber-500 dark:bg-amber-600" },
+          { id: 'n2', label: "Thirsty", speech: "I am thirsty, please give me a drink.", icon: "fa-glass-water", color: "bg-sky-500 dark:bg-sky-600" },
+          { id: 'n3', label: "Toilet", speech: "I need to go to the toilet.", icon: "fa-restroom", color: "bg-indigo-600 dark:bg-indigo-700" },
+          { id: 'n4', label: "Tired", speech: "I am tired and need to rest.", icon: "fa-bed", color: "bg-purple-600 dark:bg-purple-700" },
+          { id: 'n5', label: "In Pain", speech: "I am in pain, please help me.", icon: "fa-kit-medical", color: "bg-red-600 dark:bg-red-700" },
+          { id: 'n6', label: "Rest", speech: "I want to rest for a bit.", icon: "fa-couch", color: "bg-teal-600 dark:bg-teal-700" },
+          { id: 'n7', label: "Help Me", speech: "Please help me.", icon: "fa-hand-holding-heart", color: "bg-rose-600 dark:bg-rose-700" },
+          { id: 'n8', label: "Medicine", speech: "I need my medicine please.", icon: "fa-pills", color: "bg-blue-600 dark:bg-blue-700" }
+        ],
+        feelings: [
+          { id: 'f1', label: "Happy", speech: "I feel happy!", icon: "fa-face-smile-beam", color: "bg-emerald-500 dark:bg-emerald-600" },
+          { id: 'f2', label: "Sad", speech: "I am feeling sad.", icon: "fa-face-sad-tear", color: "bg-blue-600 dark:bg-blue-700" },
+          { id: 'f3', label: "Angry", speech: "I feel upset and angry.", icon: "fa-face-angry", color: "bg-red-600 dark:bg-red-700" },
+          { id: 'f4', label: "Anxious", speech: "I am feeling anxious and scared.", icon: "fa-face-fearful", color: "bg-purple-600 dark:bg-purple-700" },
+          { id: 'f5', label: "Cold", speech: "I feel cold.", icon: "fa-temperature-low", color: "bg-sky-600 dark:bg-sky-700" },
+          { id: 'f6', label: "Hot", speech: "I feel hot.", icon: "fa-temperature-high", color: "bg-orange-500 dark:bg-orange-600" },
+          { id: 'f7', label: "Comfortable", speech: "I am comfortable.", icon: "fa-face-smile", color: "bg-teal-500 dark:bg-teal-600" },
+          { id: 'f8', label: "Confused", speech: "I feel confused.", icon: "fa-face-meh-blank", color: "bg-slate-500 dark:bg-zinc-600" }
+        ],
+        activities: [
+          { id: 'a1', label: "Watch TV", speech: "I would like to watch television.", icon: "fa-tv", color: "bg-indigo-500 dark:bg-indigo-600" },
+          { id: 'a2', label: "Go Outside", speech: "I want to go outside for fresh air.", icon: "fa-tree", color: "bg-emerald-600 dark:bg-emerald-700" },
+          { id: 'a3', label: "Listen Music", speech: "I want to listen to music.", icon: "fa-music", color: "bg-fuchsia-600 dark:bg-fuchsia-700" },
+          { id: 'a4', label: "Read Book", speech: "I would like to read a book.", icon: "fa-book-open", color: "bg-amber-600 dark:bg-amber-700" },
+          { id: 'a5', label: "Sleep", speech: "I want to go to sleep now.", icon: "fa-moon", color: "bg-purple-800 dark:bg-purple-900" },
+          { id: 'a6', label: "Call Family", speech: "I want to call my family.", icon: "fa-phone", color: "bg-blue-600 dark:bg-blue-700" },
+          { id: 'a7', label: "Move Wheelchair", speech: "Please help me move my wheelchair.", icon: "fa-wheelchair", color: "bg-cyan-600 dark:bg-cyan-700" },
+          { id: 'a8', label: "Quiet Space", speech: "I need a quiet space right now.", icon: "fa-volume-xmark", color: "bg-slate-600 dark:bg-zinc-700" }
+        ],
+        requests: [
+          { id: 'r1', label: "Thank You", speech: "Thank you very much!", icon: "fa-heart", color: "bg-pink-500 dark:bg-pink-600" },
+          { id: 'r2', label: "Please", speech: "Please.", icon: "fa-hand-holding-heart", color: "bg-emerald-600 dark:bg-emerald-700" },
+          { id: 'r3', label: "Please Stop", speech: "Please stop that.", icon: "fa-hand", color: "bg-red-500 dark:bg-red-600" },
+          { id: 'r4', label: "I Love You", speech: "I love you!", icon: "fa-heart-circle-bolt", color: "bg-rose-500 dark:bg-rose-600" },
+          { id: 'r5', label: "What Time?", speech: "What time is it?", icon: "fa-clock", color: "bg-amber-600 dark:bg-amber-700" },
+          { id: 'r6', label: "Where Are We?", speech: "Where are we going?", icon: "fa-location-dot", color: "bg-blue-600 dark:bg-blue-700" }
+        ]
+      }
+    };
+
+    const uiTranslations = {
+      nl: {
+        appSubHeader: "Spraak & Communicatie Assistent",
+        scanBanner: "Auto-Scan Actief (Spatie / Tik overal)",
+        scanBtnOn: "Auto-Scan: AAN",
+        scanBtnOff: "Auto-Scan: UIT",
+        settingsBtn: "Instellingen",
+        currentExpressionHeading: "Gekozen Boodschap",
+        readyToSpeak: "Klaar om te spreken...",
+        sayAgainBtn: "Herhalen",
+        clearBtn: "Wissen",
+        tabNeeds: "Behoeften",
+        tabFeelings: "Gevoelens",
+        tabActivities: "Activiteiten",
+        tabRequests: "Aanvragen",
+        tabCustom: "Mijn Kaarten",
+        noCustomCardsTitle: "Nog geen aangepaste kaarten.",
+        noCustomCardsSub: "Open Instellingen om je eigen communicatiekaarten toe te voegen!",
+        modalTitle: "Instellingen & Toegankelijkheid",
+        ttsHeading: "Tekst-naar-Spraak (Stem)",
+        voiceSelectLabel: "Selecteer Stem:",
+        speechRateLabel: "Spraaksnelheid:",
+        speechPitchLabel: "Toonhoogte:",
+        testVoiceBtn: "Test Steminstellingen",
+        scanHeading: "Schakelbediening & Auto-Scannen",
+        scanDesc: "Auto-scannen licht opeenvolgend opties uit. Druk op de spatiebalk, Enter of tik ergens op het scherm om te selecteren.",
+        enableScanLabel: "Auto-Scannen Inschakelen:",
+        scanSpeedLabel: "Scansnelheid:",
+        secondsUnit: "Seconde",
+        contrastHeading: "Hoog Contrast Modus",
+        contrastDesc: "Geel-op-zwart weergave voor optimale visuele helderheid.",
+        toggleThemeBtn: "Wisselen",
+        addCustomHeading: "Aangepaste Kaart Toevoegen",
+        lblCustomLabel: "Kaart Label:",
+        lblCustomPhrase: "Gesproken Zinsdeel:",
+        lblCustomIcon: "Icoon (Pictogram):",
+        lblCustomColor: "Kleur Thema:",
+        saveCustomBtn: "Kaart Opslaan",
+        modalDoneBtn: "Klaar & Toepassen",
+        scanActivatedMsg: "Auto scan ingeschakeld",
+        scanStoppedMsg: "Auto scan uitgeschakeld",
+        noPhraseMsg: "Nog geen zin geselecteerd.",
+        clearedMsg: "Wis",
+        testSpeechMsg: "Dit is een test van uw geselecteerde steminstellingen.",
+        highContrastOn: "Hoog contrast modus ingeschakeld",
+        highContrastOff: "Standaard weergave ingeschakeld",
+        cardAddedMsg: "Aangepaste kaart toegevoegd"
+      },
+      en: {
+        appSubHeader: "AAC Speech Assistant",
+        scanBanner: "Auto-Scan Active (Space / Tap Anywhere)",
+        scanBtnOn: "Auto-Scan: ON",
+        scanBtnOff: "Auto-Scan: OFF",
+        settingsBtn: "Settings",
+        currentExpressionHeading: "Current Expression",
+        readyToSpeak: "Ready to speak...",
+        sayAgainBtn: "Say Again",
+        clearBtn: "Clear",
+        tabNeeds: "Core Needs",
+        tabFeelings: "Feelings & Moods",
+        tabActivities: "Daily Activities",
+        tabRequests: "Quick Requests",
+        tabCustom: "My Custom Cards",
+        noCustomCardsTitle: "No custom cards saved yet.",
+        noCustomCardsSub: "Open Settings to add your personalized expression cards!",
+        modalTitle: "Caregiver & Accessibility Settings",
+        ttsHeading: "Text-To-Speech (Voice Output)",
+        voiceSelectLabel: "Select Voice:",
+        speechRateLabel: "Speech Speed (Rate):",
+        speechPitchLabel: "Speech Pitch:",
+        testVoiceBtn: "Test Voice Settings",
+        scanHeading: "Switch Access & Auto-Scanning",
+        scanDesc: "Auto-scanning sequentially highlights items. When enabled, press Spacebar, Enter, or click anywhere to select.",
+        enableScanLabel: "Enable Auto-Scanning Mode:",
+        scanSpeedLabel: "Scan Speed Interval:",
+        secondsUnit: "Seconds",
+        contrastHeading: "High Contrast Mode",
+        contrastDesc: "Optimized yellow-on-black layout for high visual accessibility.",
+        toggleThemeBtn: "Toggle Mode",
+        addCustomHeading: "Add Custom Express Card",
+        lblCustomLabel: "Label Text:",
+        lblCustomPhrase: "Spoken Sentence:",
+        lblCustomIcon: "Icon (FontAwesome):",
+        lblCustomColor: "Card Color Theme:",
+        saveCustomBtn: "Save Custom Card",
+        modalDoneBtn: "Done & Apply",
+        scanActivatedMsg: "Auto scan activated",
+        scanStoppedMsg: "Auto scan stopped",
+        noPhraseMsg: "No phrase selected yet.",
+        clearedMsg: "Cleared",
+        testSpeechMsg: "This is a test of your selected voice settings.",
+        highContrastOn: "High contrast mode enabled",
+        highContrastOff: "Standard visual mode enabled",
+        cardAddedMsg: "Custom card added"
+      }
+    };
+
+    // Load custom cards from local storage or set default
+    let customCards = JSON.parse(localStorage.getItem('Chidjay_custom_cards')) || [
+      { id: 'c1', label: "Familie bellen", speech: "Kun je mij helpen mijn familie te bellen?", icon: "fa-phone", color: "bg-blue-600" }
+    ];
+
+    /* ==========================================================================
+       2. STATE VARIABLES
+       ========================================================================== */
+    let currentCategory = 'needs';
+    let currentPhrase = '';
+    let autoScanActive = false;
+    let scanIntervalId = null;
+    let currentScanIndex = -1;
+    let scanableElements = [];
+    let scanSpeedSeconds = 2.5;
+
+    // Speech Synthesis Settings
+    const synth = window.speechSynthesis;
+    let systemVoices = [];
+    let selectedVoice = null;
+    let speechRateVal = 1.0;
+    let speechPitchVal = 1.0;
+
+    /* ==========================================================================
+       3. INITIALIZATION & LANGUAGE SWITCHING
+       ========================================================================== */
+    window.addEventListener('DOMContentLoaded', () => {
+      // Auto-detect Dutch browser language if default
+      if (navigator.language && navigator.language.startsWith('en')) {
+        currentLang = 'en';
+      } else {
+        currentLang = 'nl';
+      }
+
+      applyLanguageUI();
+      renderCards(currentCategory);
+      initVoices();
+
+      if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = initVoices;
+      }
+
+      // Keyboard Switch Access Listener (Spacebar or Enter triggers selection)
+      window.addEventListener('keydown', handleGlobalKeyDown);
+
+      // Tap screen anywhere switch listener if scanning is enabled
+      document.body.addEventListener('click', handleGlobalClickForScan, true);
+    });
+
+    function setLanguage(langKey) {
+      if (currentLang === langKey) return;
+      currentLang = langKey;
+
+      applyLanguageUI();
+      renderCards(currentCategory);
+      selectAutoVoiceForLanguage();
+
+      // Announce language change
+      speakText(currentLang === 'nl' ? "Nederlands ingesteld" : "English selected");
+    }
+
+    function applyLanguageUI() {
+      const t = uiTranslations[currentLang];
+      const d = directResponses[currentLang];
+
+      document.documentElement.lang = currentLang;
+
+      // Header buttons language indicator styling
+      const btnNL = document.getElementById('langBtnNL');
+      const btnEN = document.getElementById('langBtnEN');
+      if (currentLang === 'nl') {
+        btnNL.className = "px-2.5 py-1.5 rounded-xl font-black text-sm transition-all bg-blue-600 text-white dark:bg-yellow-400 dark:text-black shadow-sm";
+        btnEN.className = "px-2.5 py-1.5 rounded-xl font-bold text-sm text-slate-600 dark:text-zinc-300 hover:text-slate-900 transition-all";
+      } else {
+        btnEN.className = "px-2.5 py-1.5 rounded-xl font-black text-sm transition-all bg-blue-600 text-white dark:bg-yellow-400 dark:text-black shadow-sm";
+        btnNL.className = "px-2.5 py-1.5 rounded-xl font-bold text-sm text-slate-600 dark:text-zinc-300 hover:text-slate-900 transition-all";
+      }
+
+      // Main UI Labels
+      document.getElementById('appSubHeader').textContent = t.appSubHeader;
+      document.getElementById('scanBannerText').textContent = t.scanBanner;
+      document.getElementById('scanBtnText').textContent = autoScanActive ? t.scanBtnOn : t.scanBtnOff;
+      document.getElementById('settingsBtnText').textContent = t.settingsBtn;
+
+      // Direct Responses
+      document.getElementById('directYesLabel').textContent = d.yes.label;
+      document.getElementById('directNoLabel').textContent = d.no.label;
+      document.getElementById('directMaybeLabel').textContent = d.maybe.label;
+      document.getElementById('directWaitLabel').textContent = d.wait.label;
+
+      // Direct Message Banner
+      document.getElementById('currentExpressionHeading').textContent = t.currentExpressionHeading;
+      document.getElementById('sayAgainBtnText').textContent = t.sayAgainBtn;
+      document.getElementById('clearBtnText').textContent = t.clearBtn;
+
+      if (!currentPhrase) {
+        document.getElementById('currentSpeakText').textContent = t.readyToSpeak;
+      }
+
+      // Categories
+      document.getElementById('tabNeedsText').textContent = t.tabNeeds;
+      document.getElementById('tabFeelingsText').textContent = t.tabFeelings;
+      document.getElementById('tabActivitiesText').textContent = t.tabActivities;
+      document.getElementById('tabRequestsText').textContent = t.tabRequests;
+      document.getElementById('tabCustomText').textContent = t.tabCustom;
+
+      // Settings Modal Labels
+      document.getElementById('modalHeaderTitle').textContent = t.modalTitle;
+      document.getElementById('ttsSettingsHeading').innerHTML = `<i class="fa-solid fa-volume-low"></i> ${t.ttsHeading}`;
+      document.getElementById('voiceSelectLabel').textContent = t.voiceSelectLabel;
+      document.getElementById('speechRateLabel').textContent = t.speechRateLabel;
+      document.getElementById('speechPitchLabel').textContent = t.speechPitchLabel;
+      document.getElementById('testVoiceBtn').innerHTML = `<i class="fa-solid fa-bullhorn"></i> ${t.testVoiceBtn}`;
+      
+      document.getElementById('scanSettingsHeading').innerHTML = `<i class="fa-solid fa-arrows-spin"></i> ${t.scanHeading}`;
+      document.getElementById('scanDescText').textContent = t.scanDesc;
+      document.getElementById('enableScanLabel').textContent = t.enableScanLabel;
+      document.getElementById('scanSpeedLabel').textContent = t.scanSpeedLabel;
+      document.getElementById('scanSpeedVal').textContent = `${scanSpeedSeconds} ${t.secondsUnit}`;
+
+      document.getElementById('contrastHeading').innerHTML = `<i class="fa-solid fa-circle-half-stroke"></i> ${t.contrastHeading}`;
+      document.getElementById('contrastDesc').textContent = t.contrastDesc;
+      document.getElementById('toggleThemeBtn').textContent = t.toggleThemeBtn;
+
+      document.getElementById('addCustomHeading').innerHTML = `<i class="fa-solid fa-plus-circle"></i> ${t.addCustomHeading}`;
+      document.getElementById('lblCustomLabel').textContent = t.lblCustomLabel;
+      document.getElementById('lblCustomPhrase').textContent = t.lblCustomPhrase;
+      document.getElementById('lblCustomIcon').textContent = t.lblCustomIcon;
+      document.getElementById('lblCustomColor').textContent = t.lblCustomColor;
+      document.getElementById('saveCustomCardBtn').innerHTML = `<i class="fa-solid fa-plus"></i> ${t.saveCustomBtn}`;
+      document.getElementById('modalDoneBtn').textContent = t.modalDoneBtn;
+    }
+
+    /* ==========================================================================
+       4. TTS (SPEECH SYNTHESIS) CORE LOGIC & DUTCH VOICE MATCHING
+       ========================================================================== */
+    function initVoices() {
+      if (!synth) return;
+      systemVoices = synth.getVoices();
+      populateVoiceDropdown();
+      selectAutoVoiceForLanguage();
+    }
+
+    function populateVoiceDropdown() {
+      const voiceSelect = document.getElementById('voiceSelect');
+      if (!voiceSelect) return;
+
+      voiceSelect.innerHTML = '';
+      if (systemVoices.length === 0) {
+        voiceSelect.innerHTML = `<option value="">System Default Voice</option>`;
+        return;
+      }
+
+      systemVoices.forEach((voice, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        option.textContent = `${voice.name} (${voice.lang})${voice.default ? ' — Default' : ''}`;
+        voiceSelect.appendChild(option);
+      });
+    }
+
+    function selectAutoVoiceForLanguage() {
+      if (!systemVoices || systemVoices.length === 0) return;
+
+      const langPrefix = currentLang === 'nl' ? 'nl' : 'en';
+      
+      // Look for explicit voice matching current language code (e.g. nl-NL, nl-BE, en-US, en-GB)
+      const matchedVoice = systemVoices.find(v => v.lang.toLowerCase().startsWith(langPrefix)) 
+                         || systemVoices.find(v => v.default) 
+                         || systemVoices[0];
+
+      selectedVoice = matchedVoice;
+
+      const voiceSelect = document.getElementById('voiceSelect');
+      if (voiceSelect && selectedVoice) {
+        const voiceIdx = systemVoices.indexOf(selectedVoice);
+        if (voiceIdx !== -1) voiceSelect.value = voiceIdx;
+      }
+    }
+
+    function speakText(textToSpeak) {
+      if (!synth) {
+        console.warn('Speech synthesis not supported in this browser.');
+        return;
+      }
+
+      synth.cancel(); // Cancel active speech for rapid access response
+
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+      utterance.lang = currentLang === 'nl' ? 'nl-NL' : 'en-US';
+      utterance.rate = parseFloat(speechRateVal);
+      utterance.pitch = parseFloat(speechPitchVal);
+
+      synth.speak(utterance);
+    }
+
+    function speakDirectResponse(typeKey) {
+      const d = directResponses[currentLang][typeKey];
+      if (!d) return;
+
+      currentPhrase = d.speech;
+      document.getElementById('currentSpeakText').textContent = `"${currentPhrase}"`;
+      speakText(currentPhrase);
+    }
+
+    function speakAndExpress(label, fullText) {
+      currentPhrase = fullText || label;
+      document.getElementById('currentSpeakText').textContent = `"${currentPhrase}"`;
+      speakText(currentPhrase);
+    }
+
+    function repeatCurrentPhrase() {
+      const t = uiTranslations[currentLang];
+      if (!currentPhrase || currentPhrase === t.readyToSpeak) {
+        speakText(t.noPhraseMsg);
+        return;
+      }
+      speakText(currentPhrase);
+    }
+
+    function clearCurrentPhrase() {
+      const t = uiTranslations[currentLang];
+      currentPhrase = '';
+      document.getElementById('currentSpeakText').textContent = t.readyToSpeak;
+      speakText(t.clearedMsg);
+    }
+
+    /* ==========================================================================
+       5. CARD RENDERING & CATEGORIES SWITCHING
+       ========================================================================== */
+    function switchCategory(catKey) {
+      currentCategory = catKey;
+
+      // Update Navigation Tab Styles
+      document.querySelectorAll('.cat-tab').forEach(tab => {
+        tab.className = "cat-tab px-5 py-3 rounded-2xl font-extrabold text-base sm:text-lg whitespace-nowrap transition-all border-3 flex items-center gap-2.5 bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 border-slate-300 dark:border-zinc-700";
+      });
+
+      const activeTab = document.getElementById(`tab-${catKey}`);
+      if (activeTab) {
+        activeTab.className = "cat-tab px-5 py-3 rounded-2xl font-extrabold text-base sm:text-lg whitespace-nowrap transition-all border-3 flex items-center gap-2.5 bg-blue-600 text-white border-blue-700 shadow-md dark:bg-yellow-400 dark:text-black dark:border-yellow-500";
+      }
+
+      renderCards(catKey);
+
+      // Speak category change
+      const catName = document.getElementById(`tab${catKey.charAt(0).toUpperCase() + catKey.slice(1)}Text`)?.textContent || catKey;
+      speakText(catName);
+
+      if (autoScanActive) {
+        resetScanSequence();
+      }
+    }
+
+    function renderCards(catKey) {
+      const container = document.getElementById('cardsGrid');
+      container.innerHTML = '';
+
+      let cards = [];
+      if (catKey === 'custom') {
+        cards = customCards;
+      } else {
+        cards = localizedCards[currentLang][catKey] || [];
+      }
+
+      if (cards.length === 0) {
+        const t = uiTranslations[currentLang];
+        container.innerHTML = `
+          <div class="col-span-full py-12 text-center text-slate-400 dark:text-zinc-500">
+            <i class="fa-solid fa-folder-open text-5xl mb-3"></i>
+            <p class="text-xl font-bold">${t.noCustomCardsTitle}</p>
+            <p class="text-sm">${t.noCustomCardsSub}</p>
+          </div>
+        `;
+        return;
+      }
+
+      cards.forEach(card => {
+        const btn = document.createElement('button');
+        btn.onclick = () => speakAndExpress(card.label, card.speech);
+        btn.setAttribute('data-scanable', 'true');
+        btn.className = `express-card group relative h-36 sm:h-44 rounded-3xl ${card.color || 'bg-blue-600'} text-white font-extrabold shadow-lg hover:shadow-xl active:scale-95 transition-all flex flex-col items-center justify-center p-3 text-center border-4 border-black/10 dark:border-white/10`;
+
+        btn.innerHTML = `
+          <i class="fa-solid ${card.icon} text-4xl sm:text-5xl mb-2 group-hover:scale-110 transition-transform"></i>
+          <span class="text-xl sm:text-2xl tracking-wide font-black leading-tight">${card.label}</span>
+        `;
+
+        container.appendChild(btn);
+      });
+    }
+
+    /* ==========================================================================
+       6. SWITCH ACCESS / AUTO-SCANNING SYSTEM
+       ========================================================================== */
+    function toggleAutoScan() {
+      autoScanActive = !autoScanActive;
+      updateScanUIState();
+
+      const t = uiTranslations[currentLang];
+      if (autoScanActive) {
+        speakText(t.scanActivatedMsg);
+        startAutoScan();
+      } else {
+        speakText(t.scanStoppedMsg);
+        stopAutoScan();
+      }
+    }
+
+    function toggleAutoScanFromModal(isNowActive) {
+      autoScanActive = isNowActive;
+      updateScanUIState();
+      if (autoScanActive) startAutoScan();
+      else stopAutoScan();
+    }
+
+    function updateScanUIState() {
+      const t = uiTranslations[currentLang];
+      const btnText = document.getElementById('scanBtnText');
+      const banner = document.getElementById('scanStatusBanner');
+      const modalToggle = document.getElementById('modalScanToggle');
+
+      if (btnText) btnText.textContent = autoScanActive ? t.scanBtnOn : t.scanBtnOff;
+      if (banner) banner.style.display = autoScanActive ? 'flex' : 'none';
+      if (modalToggle) modalToggle.checked = autoScanActive;
+    }
+
+    function startAutoScan() {
+      stopAutoScan();
+      scanableElements = Array.from(document.querySelectorAll('[data-scanable="true"]'));
+      if (scanableElements.length === 0) return;
+
+      currentScanIndex = 0;
+      highlightScanElement(currentScanIndex);
+
+      scanIntervalId = setInterval(() => {
+        clearScanHighlights();
+        currentScanIndex = (currentScanIndex + 1) % scanableElements.length;
+        highlightScanElement(currentScanIndex);
+      }, scanSpeedSeconds * 1000);
+    }
+
+    function stopAutoScan() {
+      if (scanIntervalId) clearInterval(scanIntervalId);
+      scanIntervalId = null;
+      clearScanHighlights();
+    }
+
+    function resetScanSequence() {
+      if (!autoScanActive) return;
+      startAutoScan();
+    }
+
+    function highlightScanElement(index) {
+      clearScanHighlights();
+      if (scanableElements[index]) {
+        scanableElements[index].classList.add('scan-highlighted');
+        scanableElements[index].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    function clearScanHighlights() {
+      document.querySelectorAll('.scan-highlighted').forEach(el => {
+        el.classList.remove('scan-highlighted');
+      });
+    }
+
+    function triggerHighlightedScanable() {
+      if (!autoScanActive || currentScanIndex < 0 || !scanableElements[currentScanIndex]) return;
+      
+      const target = scanableElements[currentScanIndex];
+      target.classList.add('card-active');
+      setTimeout(() => target.classList.remove('card-active'), 200);
+
+      target.click();
+    }
+
+    function handleGlobalKeyDown(e) {
+      if (autoScanActive && (e.code === 'Space' || e.key === 'Enter')) {
+        e.preventDefault();
+        triggerHighlightedScanable();
+      }
+    }
+
+    function handleGlobalClickForScan(e) {
+      if (!autoScanActive) return;
+
+      const isInteractive = e.target.closest('[data-scanable="true"]') || e.target.closest('button') || e.target.closest('input') || e.target.closest('select');
+      if (!isInteractive) {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerHighlightedScanable();
+      }
+    }
+
+    function updateScanSpeed(val) {
+      scanSpeedSeconds = parseFloat(val);
+      const t = uiTranslations[currentLang];
+      document.getElementById('scanSpeedVal').textContent = `${scanSpeedSeconds} ${t.secondsUnit}`;
+      if (autoScanActive) {
+        startAutoScan();
+      }
+    }
+
+    /* ==========================================================================
+       7. CAREGIVER SETTINGS & CUSTOM CARD BUILDER
+       ========================================================================== */
+    function openSettingsModal() {
+      document.getElementById('settingsModal').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settingsModal').classList.add('hidden');
+    }
+
+    function updateVoiceSettings() {
+      const voiceIdx = document.getElementById('voiceSelect').value;
+      if (systemVoices[voiceIdx]) {
+        selectedVoice = systemVoices[voiceIdx];
+      }
+
+      speechRateVal = document.getElementById('speechRate').value;
+      speechPitchVal = document.getElementById('speechPitch').value;
+
+      document.getElementById('rateVal').textContent = `${speechRateVal}x`;
+      document.getElementById('pitchVal').textContent = `${speechPitchVal}`;
+    }
+
+    function testVoice() {
+      const t = uiTranslations[currentLang];
+      speakText(t.testSpeechMsg);
+    }
+
+    function toggleTheme() {
+      document.documentElement.classList.toggle('dark');
+      const isDark = document.documentElement.classList.contains('dark');
+      const t = uiTranslations[currentLang];
+      speakText(isDark ? t.highContrastOn : t.highContrastOff);
+    }
+
+    function addCustomCard() {
+      const label = document.getElementById('customLabel').value.trim();
+      const speech = document.getElementById('customPhrase').value.trim();
+      const icon = document.getElementById('customIcon').value;
+      const color = document.getElementById('customColor').value;
+
+      if (!label || !speech) {
+        alert(currentLang === 'nl' ? "Vul a.u.b. zowel een label als een gesproken zin in." : "Please enter both a label and spoken phrase.");
+        return;
+      }
+
+      const newCard = {
+        id: 'custom_' + Date.now(),
+        label,
+        speech,
+        icon,
+        color
+      };
+
+      customCards.push(newCard);
+      localStorage.setItem('Chidjay_custom_cards', JSON.stringify(customCards));
+
+      // Reset form
+      document.getElementById('customLabel').value = '';
+      document.getElementById('customPhrase').value = '';
+
+      switchCategory('custom');
+      closeSettingsModal();
+
+      const t = uiTranslations[currentLang];
+      speakText(`${t.cardAddedMsg}: ${label}`);
+    }
+  </script>
+</body>
+</html>
